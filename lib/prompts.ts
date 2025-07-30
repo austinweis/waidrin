@@ -2,7 +2,7 @@
 // Copyright (C) 2025  Philipp Emanuel Weidmann <pew@worldwidemann.com>
 
 import * as schemas from "./schemas";
-import type { State } from "./state";
+import type { Genre, State } from "./state";
 
 export interface Prompt {
   system: string;
@@ -17,9 +17,9 @@ function normalize(text: string): string {
   return text.replaceAll(singleNewline, " ").trim();
 }
 
-function makePrompt(userPrompt: string): Prompt {
+function makePrompt(userPrompt: string, genre: Genre): Prompt {
   return {
-    system: "You are the game master of a text-based fantasy role-playing game.",
+    system: `${genre === "fantasy" ? "You are the game master of a text-based fantasy role-playing game." : "You are the facilitator of a choose-your-own-adventure game."}`,
     user: normalize(userPrompt),
   };
 }
@@ -29,34 +29,75 @@ Create a fictional world for a fantasy adventure RPG and return its name
 and a short description (100 words maximum) as a JSON object.
 Do not use a cliched name like 'Eldoria'.
 The world is populated by humans, elves, and dwarves.
-`);
+`, 'fantasy');
+export const generateScenePrompt = makePrompt(`
+Create the setting for a historical fiction plot and return the name (e.g. France, 2023)
+and a short description (100 words maximum) as a JSON object.
+The story can take place in the past or present.
+Do not include any information about the protagonist.
+`, 'reality');
+export const generatePlanetPrompt = makePrompt(`  
+`, 'scifi');
+export const generateFuturePrompt = makePrompt(`
+`, 'scifi');
 
 export function generateProtagonistPrompt(state: State): Prompt {
-  return makePrompt(`
+  let prompt: string;
+  switch (state.genre) {
+    case 'fantasy':
+      prompt = `
 Create a ${state.protagonist.gender} ${state.protagonist.race} protagonist
 for a fantasy adventure set in the world of ${state.world.name}.
 
 ${state.world.description}
 
 Return the character description as a JSON object. Include a short biography (100 words maximum).
-`);
+`
+      break;
+    default:
+      prompt = `
+Create a ${state.protagonist.gender} protagonist
+for a fictional story set in ${state.world.name}.
+
+${state.world.description}
+
+Return the character description as a JSON object. Include a short biography (100 words maximum).
+`
+      break;
+  }
+  return makePrompt(prompt, state.genre);
 }
 
 export function generateStartingLocationPrompt(state: State): Prompt {
-  return makePrompt(`
+  let prompt: string;
+  switch (state.genre) {
+    case 'fantasy':
+      prompt = `
 Create a starting location for a fantasy adventure set in the world of ${state.world.name}.
 
 ${state.world.description}
 
 Return the name and type of the location, and a short description (100 words maximum), as a JSON object.
-Choose from the following location types: ${Object.values(schemas.LocationType.enum).join(", ")}
-`);
+Choose from the following location types: ${Object.values(schemas.generalLocations.concat(schemas.fantasyLocations)).join(", ")}`
+    break;
+    default:
+      prompt = `
+Create a starting location for a choose your own adventure game set in ${state.world.name}.
+
+Return the name and type of the location, and a short description (100 words maximum), as a JSON object.
+Choose from the following location types: ${Object.values(schemas.generalLocations.concat(schemas.realityLocations)).join(", ")}`
+    break;
+  }
+  return makePrompt(prompt, state.genre);
 }
 
 export function generateStartingCharactersPrompt(state: State): Prompt {
   const location = state.locations[state.protagonist.locationIndex];
+  let prompt: string;
 
-  return makePrompt(`
+  switch (state.genre) {
+    case 'fantasy':
+      prompt = `
 This is the start of a fantasy adventure set in the world of ${state.world.name}. ${state.world.description}
 
 The protagonist is ${state.protagonist.name}. ${state.protagonist.biography}
@@ -66,7 +107,24 @@ ${state.protagonist.name} is about to enter ${location.name}. ${location.descrip
 Create 5 characters that ${state.protagonist.name} might encounter at ${location.name}.
 Return the character descriptions as an array of JSON objects.
 Include a short biography (100 words maximum) for each character.
-`);
+`;
+    break;
+  default:
+    prompt = `
+This is the start of a choose-your-own-adventure game. 
+
+The player's character is ${state.protagonist.name}. ${state.protagonist.biography}
+
+${state.protagonist.name} is about to enter ${location.name}. ${location.description}
+
+Create 5 characters that ${state.protagonist.name} might encounter at ${location.name}.
+Return the character descriptions as an array of JSON objects.
+Include a short biography (100 words maximum) for each character.
+`;
+    break;
+  }
+
+  return makePrompt(prompt, state.genre);
 }
 
 function makeMainPrompt(prompt: string, state: State): Prompt {
@@ -90,11 +148,11 @@ ${state.protagonist.name} is entering ${location.name}. ${location.description}
 The following characters are present at ${location.name}:
 
 ${event.presentCharacterIndices
-  .map((index) => {
-    const character = state.characters[index];
-    return `${character.name}: ${character.biography}`;
-  })
-  .join("\n\n")}
+            .map((index) => {
+              const character = state.characters[index];
+              return `${character.name}: ${character.biography}`;
+            })
+            .join("\n\n")}
 
 -----
 `);
@@ -102,8 +160,11 @@ ${event.presentCharacterIndices
     })
     .filter((text) => !!text)
     .join("\n\n");
-
-  return makePrompt(`
+  
+  let fullPrompt: string;
+  switch (state.genre){
+    case 'fantasy':
+      fullPrompt = `
 This is a fantasy adventure RPG set in the world of ${state.world.name}. ${state.world.description}
 
 The protagonist (who you should refer to as "you" in your narration, as the adventure happens from their perspective)
@@ -116,14 +177,33 @@ ${context}
 
 
 ${normalize(prompt)}
-`);
+`;
+  break;
+  default:
+    fullPrompt = `
+This is a choose your own adventure game ${state.world.name}. ${state.world.description}
+
+The protagonist (who you should refer to as "you" in your narration, as the adventure happens from their perspective)
+is ${state.protagonist.name}. ${state.protagonist.biography}
+
+Here is what has happened so far:
+
+${context}
+
+
+
+${normalize(prompt)}
+`;
+  break;
+  }
+  return makePrompt(fullPrompt, state.genre);
 }
 
 export function narratePrompt(state: State, action?: string): Prompt {
   return makeMainPrompt(
     `
 ${action ? `The protagonist (${state.protagonist.name}) has chosen to do the following: ${action}.` : ""}
-Narrate what happens next, using novel-style prose, in the present tense.
+Narrate what happens next, ${state.genre === 'fantasy' ? 'using novel-style prose' : state.genre === 'scifi' ? 'using a mysterious tone' : 'using plain language'}, in the present tense.
 Prioritize dialogue over descriptions.
 Do not mention more than 2 different characters in your narration.
 Refer to characters using their first names.

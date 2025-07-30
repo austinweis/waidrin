@@ -11,6 +11,7 @@ import type { Backend } from "./backend";
 import * as schemas from "./schemas";
 
 export type View = z.infer<typeof schemas.View>;
+export type Genre = z.infer<typeof schemas.Genre>;
 export type World = z.infer<typeof schemas.World>;
 export type Gender = z.infer<typeof schemas.Gender>;
 export type Race = z.infer<typeof schemas.Race>;
@@ -43,6 +44,7 @@ export const initialState: State = schemas.State.parse({
   logParams: false,
   logResponses: false,
   view: "welcome",
+  genre: "fantasy",
   world: {
     name: "[name]",
     description: "[description]",

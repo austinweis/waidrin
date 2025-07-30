@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025  Philipp Emanuel Weidmann <pew@worldwidemann.com>
 
-import { IconButton, Text, Tooltip, VisuallyHidden } from "@radix-ui/themes";
+import { IconButton, Text, Tooltip, VisuallyHidden, Button } from "@radix-ui/themes";
 import dynamic from "next/dynamic";
 import { Dialog } from "radix-ui";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { GiAllSeeingEye } from "react-icons/gi";
-import { RxCross2 } from "react-icons/rx";
+import { RxCross2, RxDownload, RxUpload } from "react-icons/rx";
 import { useShallow } from "zustand/shallow";
 import { type StoredState, useStateStore } from "@/lib/state";
 
@@ -32,6 +32,17 @@ export default function StateDebugger() {
   delete filteredState.backends;
   delete filteredState.set;
   delete filteredState.setAsync;
+
+  const downloadState = useCallback(() => {
+    const currentState = JSON.parse(JSON.stringify(state));
+    const blob = new Blob([JSON.stringify(currentState, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `state_dump.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [state]);
 
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen} modal={false}>
@@ -78,9 +89,23 @@ export default function StateDebugger() {
 
           <Dialog.Close asChild>
             <IconButton className="fixed top-1 right-1" variant="ghost" aria-label="Close">
-              <RxCross2 size="20" />
+              <a href="#"><RxCross2 size="20" /></a>
             </IconButton>
           </Dialog.Close>
+
+          <Button
+            onClick={downloadState}
+            className="fixed bottom-1 right-1"
+            aria-label="Download"
+          >
+            <a href="#"><RxDownload size="20"/></a>
+          </Button>
+          <Button
+            className="fixed bottom-1 right-72"
+            aria-label="Upload"
+          >
+            <a href="#"><RxUpload size="20"/></a>
+          </Button>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

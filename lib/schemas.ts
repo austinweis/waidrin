@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025  Philipp Emanuel Weidmann <pew@worldwidemann.com>
 
+import { Raleway } from "next/font/google";
 import * as z from "zod/v4";
 
 const Text = z.string().trim().nonempty();
@@ -17,12 +18,15 @@ const RequestParams = z.record(z.string(), z.unknown());
 
 export const View = z.enum(["welcome", "connection", "genre", "character", "scenario", "chat"]);
 
+export const Genre = z.enum(["fantasy", "scifi", "reality"]);
+
 export const World = z.object({
   name: Name,
   description: Description,
 });
 
 export const Gender = z.enum(["male", "female"]);
+
 
 export const Race = z.enum(["human", "elf", "dwarf"]);
 
@@ -34,7 +38,10 @@ export const Character = z.object({
   locationIndex: Index,
 });
 
-export const LocationType = z.enum(["tavern", "market", "road"]);
+export const generalLocations = ["house", "forest", "road", "trail", "room"];
+export const fantasyLocations = ["tavern", "market", "town square"];
+export const realityLocations = ["bar", "mall", "college campus"];
+export const LocationType = z.enum(Array.prototype.concat(generalLocations, fantasyLocations, realityLocations));
 
 export const Location = z.object({
   name: Name,
@@ -87,6 +94,7 @@ export const State = z.object({
   logParams: z.boolean(),
   logResponses: z.boolean(),
   view: View,
+  genre: Genre,
   world: World,
   locations: Location.array(),
   characters: Character.array(),
